@@ -1,0 +1,69 @@
+# 第 7 天参考答案。先独立尝试，再使用此文件。
+# Namespace 必须先创建，正文给出了分步应用方式。
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cka-w1-check
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-web
+  namespace: cka-w1-check
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: review-web
+  template:
+    metadata:
+      labels:
+        app: review-web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.30.5-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-web
+  namespace: cka-w1-check
+spec:
+  type: ClusterIP
+  selector:
+    app: review-web
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 80
+      protocol: TCP
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: review-client
+  namespace: cka-w1-check
+spec:
+  containers:
+    - name: client
+      image: busybox:1.37.0
+      imagePullPolicy: IfNotPresent
+      command: ["sh", "-c", "sleep 86400"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 8Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi

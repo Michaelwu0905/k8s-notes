@@ -1,0 +1,22 @@
+.obsidian/
+.DS_Store
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+**/.ssh/
+**/.kube/
+**/kubeconfig
+**/kubeconfig.yaml
+**/k3s.yaml
+**/agent-token
+**/node-token
+**/join-token
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Keep only the example Ansible inventory in Git
+k3s-ansible/hosts.ini

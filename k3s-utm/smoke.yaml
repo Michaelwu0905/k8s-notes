@@ -1,0 +1,77 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: k3s-lab
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+  namespace: k3s-lab
+  labels:
+    app: web
+spec:
+  nodeName: k3s-worker-1
+  containers:
+    - name: nginx
+      image: nginx:1.30.5-alpine
+      ports:
+        - containerPort: 80
+      resources:
+        requests:
+          cpu: 20m
+          memory: 32Mi
+        limits:
+          cpu: 200m
+          memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: k3s-lab
+spec:
+  type: ClusterIP
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-worker-2
+  namespace: k3s-lab
+spec:
+  nodeName: k3s-worker-2
+  containers:
+    - name: client
+      image: busybox:1.37.0
+      command: ["sh", "-c", "sleep 86400"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 8Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client-master
+  namespace: k3s-lab
+spec:
+  nodeName: k3s-master
+  containers:
+    - name: client
+      image: busybox:1.37.0
+      command: ["sh", "-c", "sleep 86400"]
+      resources:
+        requests:
+          cpu: 10m
+          memory: 8Mi
+        limits:
+          cpu: 100m
+          memory: 32Mi
