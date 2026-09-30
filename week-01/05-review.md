@@ -24,4 +24,4 @@
 
 例如：「删除 hello 的 Pod 后，出现了另一个名字；因为 Deployment 仍要求一个副本，ReplicaSet 创建了新 Pod。」
 
-如果不使用电脑，可以正常合盖；再次学习时先检查 Docker Desktop 和 Minikube 状态。暂停整个 Minikube 会同时影响其中的其他应用，所以本课不要求你停止或删除它。
+如果不使用电脑，可以正常合盖；Mac 睡眠时 UTM 虚拟机也会暂停。再次学习先启动或唤醒三台 VM，在新终端设置 `KUBECONFIG`，再检查三个节点是否 Ready。本课不要求停止或卸载 K3s。

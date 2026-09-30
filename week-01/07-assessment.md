@@ -8,7 +8,7 @@
 
 ## 1. 任务卡
 
-在当前 `minikube` 集群中创建以下资源。所有新资源都位于 **`cka-w1-check`** 命名空间。
+先在 Mac 终端执行 `export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"`，确认 `kubectl get nodes` 显示三台 UTM 节点 Ready，再创建以下资源。所有新资源都位于 **`cka-w1-check`** 命名空间。
 
 | 项目 | 要求 |
 | --- | --- |
@@ -27,6 +27,7 @@
 3. 删除一个应用 Pod，观察出现新的 Pod，最后仍有 2 个副本。
 4. 在 Mac 使用本地 **8082** 端口访问应用。
 5. 查看应用日志，并指出你用哪个 context、哪个命名空间完成了任务。
+6. 用 `kubectl get pods -n cka-w1-check -o wide` 记录应用 Pod 实际所在的节点，解释为什么两个副本不保证分布到不同 VM。
 
 如果 `cka-w1-check` 已存在，先判断是不是之前的本课验收资源；重做可以复用，不要覆盖无关内容。
 
@@ -46,7 +47,7 @@
 
 | 验收项 | 分值 |
 | --- | --- |
-| context 与 Namespace 正确，资源名称符合要求 | 10 |
+| kubeconfig、context 与 Namespace 正确，资源名称符合要求 | 10 |
 | Deployment 镜像、标签正确，2 个副本就绪 | 20 |
 | Service 端口、selector 正确，后端存在 | 15 |
 | 从客户端 Pod 访问 Service 成功 | 15 |
@@ -59,7 +60,7 @@
 
 ## 4. 十个口头问题
 
-1. Docker Desktop、Minikube、kubectl 分别负责什么？
+1. Mac、UTM、K3s、kubectl 分别负责什么？
 2. 一个 Pod 能不能有多个容器？
 3. 为什么删除 Deployment 管理的 Pod 后会出现新 Pod？
 4. 三个副本是否一定分布在三台机器？
@@ -79,11 +80,11 @@
 如果明确要清理本周练习，下面的命令会删除两个命名空间及其中全部资源；只在确认它们仅含本周练习后执行：
 
 ```bash
-kubectl --context=minikube get deployments,pods,services -n cka-w1
-kubectl --context=minikube get deployments,pods,services -n cka-w1-check
-kubectl --context=minikube delete namespace cka-w1 cka-w1-check
+kubectl --kubeconfig "$HOME/.kube/k3s-utm.yaml" get deployments,pods,services -n cka-w1
+kubectl --kubeconfig "$HOME/.kube/k3s-utm.yaml" get deployments,pods,services -n cka-w1-check
+kubectl --kubeconfig "$HOME/.kube/k3s-utm.yaml" delete namespace cka-w1 cka-w1-check
 ```
 
-**不需要执行 `minikube delete`**：现有 Minikube 中还有其他应用。命名空间清理后，保存在 Mac 上的教程和 YAML 仍在，可以按顺序重新创建。
+不需要卸载 K3s：现有集群中还有其他应用。命名空间清理后，保存在 Mac 上的教程和 YAML 仍在，可以按顺序重新创建。
 
 最后写下第二周最值得继续解决的一个问题，例如：「Ready 状态和应用健康有什么区别？」这正好会连接到下一周的探针学习。

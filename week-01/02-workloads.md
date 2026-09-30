@@ -8,7 +8,7 @@
 
 ```bash
 # 先在终端进入本仓库根目录
-kubectl config use-context minikube
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl config current-context
 kubectl get nodes
 kubectl get namespace cka-w1
@@ -64,16 +64,18 @@ kubectl get pods -n cka-w1
 ## 3. 换成 Deployment 管理应用
 
 ```bash
-kubectl create deployment hello -n cka-w1 --image=nginx:1.30.5-alpine --replicas=1
+kubectl create deployment hello -n cka-w1 --image=nginx:1.30.5-alpine
 kubectl rollout status deployment/hello -n cka-w1 --timeout=180s
 kubectl get deployments,replicasets,pods -n cka-w1
 ```
 
-`rollout status` 等待当前 Deployment 部署完成。成功时会看到类似：
+`kubectl create deployment` 默认创建 1 个副本，所以这里不用写 `--replicas=1`。如果以后显式指定副本数，`--replicas=1` 中间不能有空格；单独的 `--` 会把后面的内容当作容器启动命令。`rollout status` 等待当前 Deployment 部署完成。成功时会看到类似：
 
 ```text
 deployment "hello" successfully rolled out
 ```
+
+若等到超时，先执行 `kubectl describe pod -n cka-w1 -l app=hello`，看容器状态和末尾 Events，不要反复延长超时时间。比如 `exec: "replicas=1": executable file not found` 表示 Pod 把 `replicas=1` 当成启动命令，见[常见问题](troubleshooting.md)。
 
 资源关系是：
 
@@ -111,7 +113,7 @@ kubectl exec deployment/hello -n cka-w1 -- nginx -v
 
 ## 5. 亲眼观察自动补建
 
-先确认当前副本数为 1。打开两个终端，都先进入本仓库根目录，并确认 context 为 `minikube`。
+先确认当前副本数为 1。打开两个终端，都先进入本仓库根目录，并分别执行 `export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"`，确认三个节点 Ready。
 
 终端 A 持续观察：
 
@@ -140,9 +142,9 @@ kubectl get deployment hello -n cka-w1
 kubectl get pods -n cka-w1 -l app=hello -o wide
 ```
 
-预期 Deployment 的 `READY` 为 `3/3`，有三个应用 Pod。单节点 Minikube 中，这三个 Pod 都可能位于同一个节点。
+预期 Deployment 的 `READY` 为 `3/3`，有三个应用 Pod。查看 `-o wide` 输出的 `NODE` 列，记录每个 Pod 实际被调度到哪台 VM。三个 Pod 可能分散，也可能有多个落在同一节点；调度器不保证“一副本一节点”。
 
-三个副本不等于三台机器；本例不能提供节点级高可用。
+三个副本不等于三台机器；即使当前碰巧分散，三台 VM 都依赖同一台 Mac，且只有一个 Server，本环境不具备真正的高可用。
 
 最后恢复到一个副本，节省资源：
 

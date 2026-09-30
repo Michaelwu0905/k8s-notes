@@ -1,181 +1,158 @@
-# 第一周常见问题
+# 第一周常见问题：UTM K3s 环境
 
 [目录](README.md) · [命令速查](cheatsheet.md)
 
-遇到问题，先保留**完整命令、完整错误、当前 context、命名空间**。从与你现象相符的一项开始，不要同时修改多处配置。
-
-## 1. kubectl 连接失败
-
-可能看到 `connection refused`、超时，或无法连接 API Server。
-
-先检查：
+遇到问题，先保留**完整命令、错误、所用 kubeconfig、Namespace 和 Pod 所在节点**。本页命令默认在 Mac、本仓库根目录执行；每个新终端先运行：
 
 ```bash
-docker version
-minikube status -p minikube
-kubectl config get-contexts
-kubectl config current-context
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 ```
 
-判断顺序：
+## 1. kubectl 报 localhost:8080 connection refused
 
-1. Docker 没有 Server 信息：先启动 Docker Desktop。
-2. Docker 正常，已有 Minikube 已停止：执行 `minikube start -p minikube`。
-3. 集群正常，但 context 不对：执行 `kubectl config use-context minikube`。
-4. 仍失败：保留 `minikube status` 和错误输出进一步分析，不直接删除集群。
-
-若错误是 `permission denied` 或 `operation not permitted`，还可能来自运行命令的工具沙箱或权限边界，不能据此判断集群已经停止。在 Mac 自己的终端执行同样的只读检查进行对比。不要给 Docker socket 设置所有人可写的权限，也不要用 `sudo kubectl` 掩盖问题。
-
-## 2. command not found
+这通常说明当前终端没有读到本集群的 kubeconfig。Mac 的默认 `~/.kube/config` 不包含这套 K3s 配置时，kubectl 可能尝试连接 `http://localhost:8080`。
 
 ```bash
-command -v brew
-command -v minikube
-command -v kubectl
+printf '%s\n' "$KUBECONFIG"
+ls -l "$HOME/.kube/k3s-utm.yaml"
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
+kubectl config current-context
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}{"\n"}'
+kubectl get nodes -o wide
 ```
 
-只安装缺少的工具。安装后依照 Homebrew 提示配置 PATH，并重新打开终端。如果 Docker Desktop 已安装但找不到 `docker`，检查它的 CLI 工具安装设置。
+这个文件内的 context 名是 `default`，要同时核对 API 地址和 `k3s-master`、两个 worker 的节点名。`export` 只对当前终端有效，开新终端或在 IDE 里运行时要重新设置。单条命令也可加 `--kubeconfig "$HOME/.kube/k3s-utm.yaml"`。不要用 `sudo kubectl` 掩盖配置问题，也不要把 kubeconfig 上传到仓库。
 
-若 `uname -m` 是 `x86_64` 而硬件是 Apple Silicon，检查是否通过 Rosetta 运行终端。优先使用原生 ARM64 环境和支持 ARM64 的镜像。
+## 2. 配置正确，但 API 超时或拒绝连接
 
-## 3. Namespace 或资源 NotFound
+先确认三台 VM 在 UTM 中运行，再从 Mac 检查 SSH 与服务：
 
 ```bash
-kubectl config current-context
+ssh k3s-master 'sudo systemctl is-active k3s'
+ssh k3s-worker-1 'sudo systemctl is-active k3s-agent'
+ssh k3s-worker-2 'sudo systemctl is-active k3s-agent'
+```
+
+若 master 无法 SSH，检查 UTM 是否启动、Mac 是否刚从睡眠恢复。若 `k3s` 不是 `active`，到 master 看 `sudo systemctl status k3s` 和 `sudo journalctl -u k3s -n 100 --no-pager`。Agent 异常时在对应 worker 看 `k3s-agent` 的状态和日志。初学阶段先记录错误，不要直接卸载重装。
+
+UTM Shared Network 的 DHCP 地址可能变化。若 SSH 仍可连接但 kubeconfig 的 API 地址不可达，对照下面两项：
+
+```bash
+kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}{"\n"}'
+ssh k3s-master 'ip -4 -br addr show enp0s1'
+```
+
+地址变化可能还涉及 K3s Server/Agent 的节点 IP 与加入地址；按 [UTM 集群安装说明](../k3s-utm/install-guide.md) 检查整套配置，不要只改 Mac kubeconfig。
+
+## 3. command not found 或 Namespace NotFound
+
+在 Mac 检查 `command -v kubectl`；缺失时按 [macOS 安装 kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/) 安装。SSH 命令在 Mac 执行；`systemctl` 则运行在 Ubuntu VM，不在 macOS 上运行。
+
+```bash
 kubectl get namespaces
 kubectl get pods -A
-```
-
-先检查是不是命名空间写错了。创建本课 Namespace：
-
-```bash
 kubectl apply -f week-01/manifests/namespace.yaml
 ```
 
-`-n cka-w1` 与 `-n default` 查询的是不同范围。你原来的 default 中也可能有 `web`，不要误以为它就是教程创建的资源。
+`-n cka-w1` 与 `-n default` 是不同范围。若对象 `AlreadyExists`，先 `get` / `describe` 确认归属；不要因此删掉其他人的对象。第 2 天用 `create`，之后的 YAML 用 `apply` 管理。
 
-## 4. AlreadyExists
+## 4. rollout status 超时 / RunContainerError
 
-这是「对象已经存在」，不是「必须删除重装」。
+超时说明 Deployment 尚未达到可用副本数，先查 Pod，而不是只增加 `--timeout`：
 
-先用 `get` / `describe` 核对它是不是自己的练习资源。YAML 实验使用 `apply` 更新；使用 `create` 的第 2 天练习，重做时可继续使用已有 Deployment，或仅删除那个明确的练习对象后再建。
+```bash
+kubectl get deployment,pods -n cka-w1 -o wide
+kubectl describe pod -n cka-w1 -l app=hello
+```
+
+若 Events 包含 `exec: "replicas=1": executable file not found`，并且 `describe` 显示容器 `Command: replicas=1`，说明它被当作启动命令，Nginx 根本没启动。创建命令中的 `--replicas=1` 是一个完整参数；写成 `-- replicas=1` 就变成了容器命令。第 2 天创建一个副本时可以直接省略这个参数，因为默认就是 1。
+
+对于本课 `hello` Deployment，可以移除误设的命令，然后重新等待：
+
+```bash
+kubectl patch deployment hello -n cka-w1 --type=json -p='[{"op":"remove","path":"/spec/template/spec/containers/0/command"}]'
+kubectl rollout status deployment/hello -n cka-w1 --timeout=180s
+```
+
+这条补丁只适用于已确认 `hello` 容器存在这个错误 `command` 字段的情况。若 Events 显示拉镜像、资源不足或其他错误，按对应小节排查。
 
 ## 5. ImagePullBackOff / ErrImagePull
 
-先看 Pod 的 Events：
+先找到失败的 Pod 和它的节点，再读 Events：
 
 ```bash
+kubectl get pods -n cka-w1 -o wide
 kubectl describe pods -n cka-w1 -l app=web
 kubectl get events -n cka-w1 --sort-by=.metadata.creationTimestamp
 ```
 
-| 事件中的线索 | 下一步 |
+| 事件线索 | 先检查 |
 | --- | --- |
-| `manifest unknown`、`not found` | 核对镜像仓库名和标签 |
-| `unauthorized`、`denied` | 核对仓库是否需要认证 |
-| `timeout`、DNS 或 TLS 错误 | 检查镜像仓库访问、网络和代理配置 |
-| `toomanyrequests`、限流 | 按仓库提示认证或稍后重试 |
-| `no matching manifest` | 核对镜像是否提供节点所需的 ARM64 架构 |
+| `manifest unknown` / `not found` | 仓库名、标签是否存在 |
+| `unauthorized` / `denied` | 仓库认证 |
+| `timeout` / DNS / TLS 错误 | **该 Pod 所在 VM** 的网络、DNS、代理 |
+| `toomanyrequests` | 仓库限流 |
+| `no matching manifest` | 镜像是否提供 Linux ARM64 版本 |
 
-第 6 天的错误镜像是故意写错标签，其他时候不能一概认为都是同一原因。
+Mac 的 Docker 镜像与三台 VM 的 K3s/containerd 镜像仓库相互独立。Mac 能 `docker pull` 不代表节点已经有镜像。可以在对应 VM 上用 `sudo k3s crictl images` 查看本地镜像；需要时检查 `sudo journalctl -u k3s-agent -n 100 --no-pager`（master 上改为 `-u k3s`）。镜像可能调度到其他 VM，不能只检查 master。本周镜像为 `nginx:1.30.5-alpine` 和 `busybox:1.37.0`。第 6 天故意使用错误标签，但现实故障要以 Events 为准。
 
-### Mac 能拉取镜像，但节点拉取失败
-
-Mac 上的 Docker 镜像存储与 Minikube 节点内的镜像存储不是同一个概念。可以使用官方支持的镜像加载方式，把可用镜像放进指定 profile：
+## 6. Pending / ContainerCreating / NotReady
 
 ```bash
-docker pull nginx:1.30.5-alpine
-docker pull busybox:1.37.0
-minikube image load nginx:1.30.5-alpine -p minikube
-minikube image load busybox:1.37.0 -p minikube
-```
-
-本课 YAML 的 `imagePullPolicy: IfNotPresent` 允许复用节点中的镜像。加载完成后等待 kubelet 重试；必要时只删除本课失败的应用 Pod，让 Deployment 补建。若 Mac 自己也拉取失败，先处理访问仓库的问题，镜像加载无法绕过它。
-
-不要因为网络慢就随意替换成来源不明的镜像仓库。本课只有两个应用镜像，成功下载后可复用。
-
-## 6. Pending / ContainerCreating 很久
-
-短暂出现通常是正常过程；持续很久需要看事件：
-
-```bash
+kubectl get nodes -o wide
+kubectl get pods -n cka-w1 -o wide
 kubectl describe pods -n cka-w1 -l app=web
-kubectl describe node minikube
+kubectl top nodes
 ```
 
-如果事件出现 `Insufficient cpu` 或 `Insufficient memory`，说明调度所需资源不足。先检查是否有多余的本课练习副本；本周基线是 2 个 web 和 1 个 toolbox。现有集群还有其他应用，不能直接删除它们来腾资源。
-
-`ContainerCreating` 也可能卡在镜像、网络沙箱或卷准备环节，具体看 Events。
-
-默认 Minikube 未必启用 metrics-server，因此 `kubectl top` 报 Metrics API 不可用并不等于整个集群故障。本周不依赖它。
+若节点 `NotReady`，先检查对应 UTM VM 和 `k3s`/`k3s-agent` 服务。`Insufficient cpu` 或 `Insufficient memory` 表示当前可调度资源不足；先恢复本课基线：2 个 `web` Pod、1 个 `toolbox`，并查看 VM 实际内存。`ContainerCreating` 也可能卡在镜像、网络沙箱或卷准备，具体看 Events。当前 K3s 装有 metrics-server；若 `kubectl top` 暂时失败，先用 `describe`、Events 和 VM 上的 `free -h`，不妨碍本周练习。
 
 ## 7. CrashLoopBackOff
 
-这通常表示容器启动后反复退出并进入重试退避。与镜像根本未能拉取不同，应同时检查应用日志和退出原因。
+这表示容器启动后反复退出。与镜像尚未拉取不同，应结合退出原因和日志判断。
 
 ```bash
-kubectl get pods -n cka-w1
+kubectl get pods -n cka-w1 -o wide
 kubectl describe pods -n cka-w1 -l app=web
 kubectl logs deployment/web -n cka-w1 --tail=50
 ```
 
-如需看某个容器上一次运行的日志，先用实际 Pod 名称设置变量，再执行：
-
-```bash
-FAILED_POD=请替换成实际失败的Pod名称
-kubectl logs "$FAILED_POD" -n cka-w1 --previous
-```
-
-第一行的值必须替换，不能原样执行。若容器从未重启，`--previous` 没有对应日志也是正常的。本周故障练习不要求主动制造 CrashLoopBackOff，先学会辨认。
+若要查上一次容器运行的日志，先从 `get pods` 复制实际 Pod 名称，再执行 `kubectl logs 实际Pod名 -n cka-w1 --previous`。容器从未重启时没有 previous 日志属正常。本周不用主动制造这种故障。
 
 ## 8. YAML 报错
 
-- 检查缩进是否混入 Tab，冒号后是否有空格。
-- 检查 `apiVersion` 和 `kind` 是否正确。
-- 检查 selector 与 Pod 模板的 labels 是否匹配。
-- 检查文件路径是否相对于本仓库根目录。
-
-可以先让服务端验证，而不真正保存本次资源修改：
+检查缩进、冒号、`apiVersion`、`kind`，以及 selector 与 Pod labels 是否匹配。命令在仓库根目录运行，文件路径才会如教程所示。可让服务端验证而不保存修改：
 
 ```bash
 kubectl apply --dry-run=server -f week-01/manifests/web-deployment.yaml
 ```
 
-这仍然需要连接集群，并且 Namespace 应已存在。不要把「dry-run」理解为所有命令都能离线执行。
+这需要连接集群，且 `cka-w1` 已存在。Deployment selector 等字段不可变；第 3 天只修改副本数。
 
-Deployment 的 selector 等字段有不可变约束。第 3 天只修改副本数，不随意改 selector。如果只是想恢复练习，优先重新应用参考文件。
+## 9. Mac 的 8080 端口访问失败
 
-## 9. 本地 8080 访问失败
-
-依次确认：
-
-1. 执行 `port-forward` 的终端是否仍在运行？
-2. 它是否输出了 `Forwarding from ...`？
-3. curl 使用的端口是否与转发左边一致？
-4. 对应 Pod 是否就绪？Service selector 是否正确？
-
-如果提示端口被占用：
+先确认运行 `port-forward` 的终端仍在运行、该终端设置了 `KUBECONFIG`、输出出现 `Forwarding from ...`，并核对 curl 使用的本地端口。若 8080 被占用，在该终端改用：
 
 ```bash
 kubectl port-forward -n cka-w1 service/web 8081:80
 ```
 
-再访问 `http://127.0.0.1:8081`。端口转发选择的 Pod 被删除或替换后，转发可能中断，需要重新运行。
+再访问 `http://127.0.0.1:8081`。被转发的 Pod 删除或替换后，通道可能中断，重新启动即可。`port-forward` 成功不证明普通 Service 路径正常。
 
 ## 10. Pod Running，但 Service 不通
 
 ```bash
-kubectl get pods -n cka-w1 -l app=web --show-labels
+kubectl get pods -n cka-w1 -l app=web --show-labels -o wide
 kubectl describe service web -n cka-w1
 kubectl get endpointslices -n cka-w1 -l kubernetes.io/service-name=web -o yaml
 kubectl exec -n cka-w1 toolbox -- wget -qO- -T 5 http://web:80
 ```
 
-先确认标签匹配、后端地址、目标端口，再查应用实际监听情况。`port-forward` 成功不能证明普通 Service 路径成功，所以保留集群内测试。
+先比对 Service selector 和 Pod 标签，再比对 `targetPort` 与应用实际监听端口。`get pods -o wide` 可显示客户端与后端在哪台 VM；跨节点失败时再结合节点、Flannel 和 VM 网络排查。[K3s 安装说明](../k3s-utm/install-guide.md)记录了这套环境的跨节点验证。
 
-## 11. 如何恢复本周正常基线
+## 11. 恢复本周正常基线
 
-先确认 context 是 `minikube`，并结束之前的端口转发，再按顺序应用：
+确认 `KUBECONFIG` 和三个节点，结束先前的端口转发，然后按顺序应用：
 
 ```bash
 kubectl apply -f week-01/manifests/namespace.yaml
@@ -187,10 +164,4 @@ kubectl wait -n cka-w1 --for=condition=Ready pod/toolbox --timeout=180s
 kubectl exec -n cka-w1 toolbox -- wget -qO- -T 5 http://web:80
 ```
 
-这些命令恢复参考文件所管理的字段，并不会自动删除额外创建的资源。如果遗留了故障实验的 Deployment，可在确认归属后单独清理：
-
-```bash
-kubectl delete deployment broken-image -n cka-w1 --ignore-not-found
-```
-
-若你修改了 Pod 的不可变字段，重新 apply 可能无法恢复。只对本课的 toolbox，可删除后重新应用其 YAML；其他情况先看具体错误。
+这些命令不会自动删除额外对象。故障实验留下的 `broken-image` 可在确认归属后单独执行 `kubectl delete deployment broken-image -n cka-w1 --ignore-not-found`。若 `toolbox` 因不可变字段无法重新 apply，只删除本课的 `toolbox` Pod，再应用其 YAML。

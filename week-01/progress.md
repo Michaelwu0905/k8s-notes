@@ -9,11 +9,11 @@
 | 项目 | 编写教程时确认的值 | 你开始学习时的值 |
 | --- | --- | --- |
 | Mac | Apple Silicon，16GB 内存（用户提供） | |
-| Minikube | v1.38.1 | |
-| Profile / context | minikube / minikube | |
-| 驱动 | docker | |
-| Kubernetes Server | v1.35.1 | |
-| kubectl Client | v1.36.2 | |
+| UTM VM | 3 台 Ubuntu 26.04.1 LTS / ARM64 | |
+| K3s Server / Agents | `k3s-master` / `k3s-worker-1`、`k3s-worker-2` | |
+| K3s 版本 | `v1.36.4+k3s1`（安装时） | |
+| kubeconfig / context | `~/.kube/k3s-utm.yaml` / `default` | |
+| Kubernetes Server / kubectl Client | 执行 `kubectl version` 记录 | |
 
 ## 进度
 
@@ -31,7 +31,7 @@
 
 ## 技能清单
 
-- [ ] 检查 Minikube 状态和 kubectl context。
+- [ ] 检查 UTM VM、K3s 三个节点、kubeconfig 和 API 地址。
 - [ ] 能讲清 Cluster、Node、Pod、Deployment、Service、Namespace。
 - [ ] 创建 Deployment，并等待应用就绪。
 - [ ] 用 get / describe / logs / exec 收集信息。
@@ -51,7 +51,7 @@
 - 日期与所处章节：
 - 我的目标：
 - 实际现象、完整报错：
-- 当前 context / Namespace：
+- 当前 kubeconfig / API 地址 / Namespace：
 - 我执行的检查命令：
 - 最关键的一条证据：
 - 根本原因：

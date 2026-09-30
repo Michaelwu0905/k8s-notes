@@ -8,7 +8,7 @@
 
 ```bash
 # 先在终端进入本仓库根目录
-kubectl config use-context minikube
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl config current-context
 kubectl apply -f week-01/manifests/namespace.yaml
 kubectl apply -f week-01/manifests/web-deployment.yaml
@@ -69,9 +69,10 @@ EndpointSlice 记录 Service 对应的后端地址等信息。预期能看到应
 
 ## 3. 从 Mac 访问：先用端口转发
 
-终端 A：
+终端 A（新终端先设置 kubeconfig）：
 
 ```bash
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl port-forward -n cka-w1 service/web 8080:80
 ```
 
@@ -115,7 +116,7 @@ kubectl exec -n cka-w1 toolbox -- wget -qO- -T 5 http://web.cka-w1.svc.cluster.l
 
 在本课默认集群域 `cluster.local` 下，完整域名由「Service 名 + Namespace + svc + 集群域」组成。换了命名空间的客户端就不应假设短名 `web` 仍指向这里。
 
-macOS 使用 Docker 驱动时，宿主机通常不能直接访问集群内部 IP。本课统一使用端口转发，不要求你修改 Mac 路由，也不使用 `minikube ip` 拼接 NodePort 地址。
+ClusterIP 是集群内部虚拟地址，不应假设 Mac 能直接路由到它。本课使用 `port-forward` 从 Mac 访问；从 `toolbox` 发请求则走集群内 Service 路径。用 `kubectl get pods -n cka-w1 -o wide` 比较客户端和 Nginx 所在节点：即使在不同 VM，集群网络也应使请求成功。
 
 ## 5. 看一眼访问日志
 

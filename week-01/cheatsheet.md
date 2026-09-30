@@ -2,14 +2,13 @@
 
 [目录](README.md) · [常见问题](troubleshooting.md)
 
-所有示例针对 `minikube` 的 `cka-w1`。先确认目标，再操作。
+所有示例针对 UTM K3s 集群的 `cka-w1`。每个新 Mac 终端先设置 `KUBECONFIG`，再核对节点。
 
 ## 每次开始
 
 ```bash
 # 先在终端进入本仓库根目录
-minikube status -p minikube
-kubectl config use-context minikube
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl config current-context
 kubectl get nodes
 ```
@@ -87,6 +86,6 @@ curl -I http://127.0.0.1:8080
 | `-f 文件路径` | 在 apply 等命令中指定文件 |
 | `logs -f` | 持续跟随日志，Ctrl+C 退出 |
 | `--dry-run=client` | 客户端模拟生成，不提交创建 |
-| `--context=minikube` | 为这条命令显式选择连接上下文 |
+| `--kubeconfig "$HOME/.kube/k3s-utm.yaml"` | 为单条命令显式指定这个集群的配置文件 |
 
 同一个 `-f` 在不同命令中有不同含义，要结合命令理解。

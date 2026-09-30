@@ -8,7 +8,7 @@
 
 ```bash
 # 先在终端进入本仓库根目录
-kubectl config use-context minikube
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl config current-context
 kubectl apply -f week-01/manifests/namespace.yaml
 kubectl delete deployment hello -n cka-w1 --ignore-not-found

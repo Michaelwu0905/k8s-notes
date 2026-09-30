@@ -2,15 +2,16 @@
 
 [目录](README.md)
 
-资料核对日期：2026-09-24。以下链接用于查询和延伸阅读，不需要第一周全部通读。按你正在做的实验选择对应页面即可。
+资料核对日期：2026-09-30。以下链接按正在做的实验选择阅读，不需要第一周全部通读。
 
 ## 环境与工具
 
-- [Minikube 入门](https://minikube.sigs.k8s.io/docs/start/)：安装、启动、基本要求。
-- [Minikube 状态命令](https://minikube.sigs.k8s.io/docs/commands/status/)：检查 profile 运行状态。
-- [Minikube 镜像命令](https://minikube.sigs.k8s.io/docs/commands/image/)：向学习节点加载镜像。
-- [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/)：Apple silicon 安装入口。
-- [macOS 安装 kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-macos/)：安装和客户端/服务端版本要求。
+- [本仓库的 UTM K3s 环境说明](../k3s-utm/README.md)：三台 VM、SSH 别名、kubeconfig 与跨节点实验。
+- [K3s 架构](https://docs.k3s.io/architecture)：Server / Agent 的职责，以及单 Server 架构。
+- [K3s 数据存储](https://docs.k3s.io/datastore)：单 Server 默认 SQLite。
+- [K3s 网络服务](https://docs.k3s.io/networking/networking-services)：CoreDNS、Traefik、ServiceLB 等内置服务。
+- [配置 kubectl 访问多个集群](https://kubernetes.io/docs/tasks/access-application-cluster/configure-access-multiple-clusters/)：`KUBECONFIG`、`--kubeconfig` 与 context。
+- [kubectl 版本偏差规则](https://kubernetes.io/releases/version-skew-policy/)：客户端与 API Server 的支持范围。
 
 ## Kubernetes 核心概念
 
@@ -26,33 +27,16 @@
 - [排查 Pod](https://kubernetes.io/docs/tasks/debug/debug-application/debug-pods/)：第 6 天。
 - [排查 Service](https://kubernetes.io/docs/tasks/debug/debug-application/debug-service/)：第 6 天。
 
-## 镜像与版本策略
+## 镜像与版本
 
-本教程选择小型 Nginx Alpine 镜像和 BusyBox，使用明确的版本标签，避免不同日期拉取 `latest` 带来的行为变化。镜像标签仍不等于内容摘要；本教程的重点是学习资源操作，不是生产镜像供应链设计。
+本教程选用固定标签的 Nginx Alpine 镜像与 BusyBox。镜像标签仍不等于内容摘要。三台 VM 为 Linux ARM64，若替换镜像，应检查其架构支持。
 
-- Nginx：`nginx:1.30.5-alpine`，官方镜像清单包含 ARM64 架构。[镜像清单](https://github.com/docker-library/official-images/blob/master/library/nginx)
-- BusyBox：`busybox:1.37.0`，官方镜像清单包含 ARM64 架构。[镜像清单](https://github.com/docker-library/official-images/blob/master/library/busybox)
-- 现有 Minikube：Kubernetes v1.35.1；本周不升级或重建已有集群。
+- Nginx：`nginx:1.30.5-alpine`。[官方镜像清单](https://github.com/docker-library/official-images/blob/master/library/nginx)
+- BusyBox：`busybox:1.37.0`。[官方镜像清单](https://github.com/docker-library/official-images/blob/master/library/busybox)
+- 安装时 K3s 版本为 `v1.36.4+k3s1`；实际学习时以 `kubectl get nodes` 和 `kubectl version` 为准。
 
-## 验证记录
+## 验证范围
 
-2026-09-28 在现有 Minikube / Kubernetes v1.35.1 上完成核心实操校验。测试使用单独创建的临时命名空间，并将 YAML 中的命名空间替换为该测试空间；现有应用和读者练习空间未用于故障注入。
+本周 YAML 原先在 Minikube 环境做过实操测试。改为 UTM K3s 后，配置文件保持不变；教程连接方式、节点示例和排障步骤已针对当前集群改写。2026-09-30 只读检查确认三台节点均为 Ready、系统 Pod 正常；使用 `kubectl create --dry-run=client` 验证 8 个资源文档，没有创建练习资源。14 个 Markdown 文件的 70 个本地链接、72 个 shell 代码块的 zsh 语法，以及 YAML 解析均通过检查。当前环境中已有 [跨节点 Service 与 DNS 实验](../k3s-utm/README.md)，但本周所有故障实验尚未在 K3s 上重做。
 
-| 检查项目 | 结果 |
-| --- | --- |
-| 5 个 YAML 文件，合计 8 个资源文档的解析与基本结构 | 通过 |
-| 14 个 Markdown 文件中的 64 个本地链接、代码围栏 | 通过 |
-| 77 个 shell 代码块的 zsh 语法检查 | 通过 |
-| Deployment 就绪、Service 与 DNS、集群内 HTTP 请求 | 通过 |
-| Mac 端口转发访问 | 通过 |
-| 扩缩容、删除 Pod 后补建、重新 apply 恢复副本数 | 通过 |
-| 错误 selector、错误 targetPort 的故障与恢复 | 通过 |
-| 错误镜像标签触发拉取失败，修复镜像后部署成功 | 通过 |
-| 周末参考配置：Service 8080 → Pod 80，内部请求及本地转发 | 通过 |
-| 临时测试命名空间清理，按测试标签复查无残留 | 通过 |
-
-实测发现 Service 变更与网络转发规则生效之间存在异步延迟，已在第 6 天补充等待、观察和重试说明。实际端口转发测试使用临时空闲本机端口，避免与已有应用冲突；教程选用 8080、8082 作为易记示例，并提供端口冲突处理方法。
-
-这些检查覆盖本机上的核心学习流程，不表示每个可选安装分支或所有网络环境都经过实测。首次安装、下载速度、代理设置仍取决于实际环境。
-
-本课示例输出是为解释而整理的形状，Pod 名称、IP、时间和事件文字可能不同。练习题、时间预算、自测分数是本教程的教学设计，不是官方考试标准。
+示例输出用于解释，Pod 名称、IP、节点、时间和事件文字会随实际运行而变化。练习题、时间预算与自测分数是教学设计，不是官方考试标准。

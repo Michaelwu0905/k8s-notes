@@ -7,7 +7,7 @@
 ## 一周结束后，你应当能做到
 
 - 说清 Node、Pod、Deployment、Service、Namespace 分别负责什么。
-- 检查现有 Minikube 集群，并确认操作的是哪个集群。
+- 检查现有三节点 UTM K3s 集群，并确认操作的是哪个集群。
 - 用命令和 YAML 两种方式部署应用，理解「期望状态」。
 - 扩缩容，观察删除 Pod 后的自动补建。
 - 从 Mac 访问应用，也能从集群内验证 Service。
@@ -18,7 +18,7 @@
 
 | 日期 | 内容 | 时间 | 完成标志 |
 | --- | --- | --- | --- |
-| 第 1 天 | [概念与环境](01-cluster.md) | 60 分钟 | 一个 Ready 节点 |
+| 第 1 天 | [概念与环境](01-cluster.md) | 60 分钟 | 三个 Ready 节点 |
 | 第 2 天 | [部署与观察](02-workloads.md) | 60 分钟 | 能部署、扩容、观察补建 |
 | 第 3 天 | [YAML 与命名空间](03-yaml.md) | 60 分钟 | 能解释并修改一份 Deployment |
 | 第 4 天 | [Service 与访问](04-networking.md) | 60 分钟 | Mac 与集群内均能访问应用 |
@@ -33,8 +33,9 @@
 | 项目 | 本周统一使用 |
 | --- | --- |
 | 工作目录 | 本仓库根目录 |
-| Minikube profile | `minikube` |
-| kubectl context | `minikube` |
+| 集群节点 | `k3s-master`、`k3s-worker-1`、`k3s-worker-2` |
+| kubeconfig | `~/.kube/k3s-utm.yaml`（不提交到仓库） |
+| 此文件内的 context | `default` |
 | 日常实验 Namespace | `cka-w1` |
 | 第 2 天临时 Deployment | `hello` |
 | 第 3 天起的 Deployment / Service | `web` / `web` |
@@ -47,12 +48,12 @@
 
 ```bash
 # 先在终端进入本仓库根目录
-kubectl config use-context minikube
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl config current-context
 kubectl get nodes
 ```
 
-如果 context 不存在，先完成第 1 天的环境检查。后续只有看到 `minikube` 和 Ready 节点才继续。本周命令都显式写 `-n`，练习识别命名空间，不修改默认命名空间。现有集群的其他应用继续保留。
+这个 kubeconfig 内的 context 名是 `default`，还要核对 API 地址和三个节点名，不能只凭 context 名判断集群。如果文件不存在或节点不是 Ready，先完成第 1 天的环境检查。本周命令都显式写 `-n`，练习识别命名空间，不修改默认命名空间。现有集群的其他应用继续保留。
 
 ## 怎么阅读和练习
 
@@ -71,4 +72,4 @@ kubectl get nodes
 - [参考 YAML](solutions/assessment.yaml)：第 7 天的完整答案。
 - [资料索引与验证说明](references.md)。
 
-本周沿用已运行的单节点 Minikube，不需要再建 kind 集群，也不需要为本课调整现有资源分配。只运行少量 Nginx 与 BusyBox 容器；若出现资源不足，先按排查页检查。清理时只删除本课资源，不删除或重置已有 Minikube 集群。
+本周沿用已运行的三节点 UTM K3s 集群，不需要重复安装 K3s。只运行少量 Nginx 与 BusyBox 容器；若资源不足，先按排查页检查。清理时只删除本课资源，不卸载或重置集群。三台 VM 均运行在同一台 Mac 上，合盖睡眠后要等 VM 和节点恢复 Ready。

@@ -10,7 +10,7 @@
 
 ```bash
 # 先在终端进入本仓库根目录
-kubectl config use-context minikube
+export KUBECONFIG="$HOME/.kube/k3s-utm.yaml"
 kubectl config current-context
 kubectl apply -f week-01/manifests/namespace.yaml
 kubectl apply -f week-01/manifests/web-deployment.yaml
@@ -26,7 +26,7 @@ kubectl exec -n cka-w1 toolbox -- wget -qO- -T 5 http://web:80
 ## 2. 使用一条固定的排查顺序
 
 ```text
-确认 context / namespace
+确认 kubeconfig / API 地址 / namespace
        ↓
 get：看范围与状态
        ↓
